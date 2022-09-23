@@ -22,7 +22,14 @@ import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
  + increased composability without affecting accounting logic too much, and users can
  + trade their Relics without withdrawing liquidity or affecting the position's maturity.
 */
-contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessControlEnumerable, Multicall, ReentrancyGuard {
+contract Reliquary is
+    IReliquary,
+    ERC721Burnable,
+    ERC721Enumerable,
+    AccessControlEnumerable,
+    Multicall,
+    ReentrancyGuard
+{
     using SafeERC20 for IERC20;
 
     /// @notice Access control roles.
@@ -81,11 +88,7 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
         address indexed to,
         uint indexed relicId
     );
-    event Harvest(
-        uint indexed pid,
-        uint amount,
-        uint indexed relicId
-    );
+    event Harvest(uint indexed pid, uint amount, uint indexed relicId);
     event LogPoolAddition(
         uint indexed pid,
         uint allocPoint,
@@ -116,21 +119,24 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
      + @param _oath The OATH token contract address.
      + @param _emissionCurve The contract address for the EmissionCurve, which will return the emission rate
     */
-    constructor(IERC20 _oath, IEmissionCurve _emissionCurve) ERC721("Reliquary Deposit", "RELIC") {
+    constructor(IERC20 _oath, IEmissionCurve _emissionCurve)
+        ERC721("Reliquary Deposit", "RELIC")
+    {
         oath = _oath;
         emissionCurve = _emissionCurve;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
     /// @notice Implement ERC165 to return which interfaces this contract conforms to
-    function supportsInterface(bytes4 interfaceId) public view
-    override(
-        IReliquary,
-        AccessControlEnumerable,
-        ERC721,
-        ERC721Enumerable
-    ) returns (bool) {
-        return interfaceId == type(IReliquary).interfaceId || super.supportsInterface(interfaceId);
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(IReliquary, AccessControlEnumerable, ERC721, ERC721Enumerable)
+        returns (bool)
+    {
+        return
+            interfaceId == type(IReliquary).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 
     /// @notice Returns the number of Reliquary pools.
@@ -138,30 +144,57 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
         pools = poolInfo.length;
     }
 
-    function tokenURI(uint tokenId) public view override(ERC721) returns (string memory) {
+    function tokenURI(uint tokenId)
+        public
+        view
+        override(ERC721)
+        returns (string memory)
+    {
         require(_exists(tokenId), "token does not exist");
-        return nftDescriptor[positionForId[tokenId].poolId].constructTokenURI(tokenId);
+        return
+            nftDescriptor[positionForId[tokenId].poolId].constructTokenURI(
+                tokenId
+            );
     }
 
     /// @param _emissionCurve The contract address for EmissionCurve, which will return the base emission rate
-    function setEmissionCurve(IEmissionCurve _emissionCurve) external override onlyRole(EMISSION_CURVE) {
+    function setEmissionCurve(IEmissionCurve _emissionCurve)
+        external
+        override
+        onlyRole(EMISSION_CURVE)
+    {
         emissionCurve = _emissionCurve;
         emit LogSetEmissionCurve(_emissionCurve);
     }
 
-    function getPositionForId(uint relicId) external view override returns (PositionInfo memory position) {
+    function getPositionForId(uint relicId)
+        external
+        view
+        override
+        returns (PositionInfo memory position)
+    {
         position = positionForId[relicId];
     }
 
-    function getPoolInfo(uint pid) external view override returns (PoolInfo memory pool) {
+    function getPoolInfo(uint pid)
+        external
+        view
+        override
+        returns (PoolInfo memory pool)
+    {
         pool = poolInfo[pid];
     }
 
-    function getLevelInfo(uint pid) external view override returns(LevelInfo memory levelInfo) {
+    function getLevelInfo(uint pid)
+        external
+        view
+        override
+        returns (LevelInfo memory levelInfo)
+    {
         levelInfo = levels[pid];
     }
 
-    function burn(uint tokenId) public override (IReliquary, ERC721Burnable) {
+    function burn(uint tokenId) public override(IReliquary, ERC721Burnable) {
         require(positionForId[tokenId].amount == 0, "contains deposit");
         require(pendingOath(tokenId) == 0, "contains pending rewards");
         super.burn(tokenId);
@@ -190,12 +223,22 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
     ) external override onlyRole(OPERATOR) {
         require(_poolToken != oath, "cannot add reward token as pool");
         require(requiredMaturity.length != 0, "empty levels array");
-        require(requiredMaturity.length == allocPoints.length, "array length mismatch");
+        require(
+            requiredMaturity.length == allocPoints.length,
+            "array length mismatch"
+        );
         require(requiredMaturity[0] == 0, "requiredMaturity[0] != 0");
         if (requiredMaturity.length > 1) {
             uint highestMaturity;
-            for (uint i = 1; i < requiredMaturity.length; i = _uncheckedInc(i)) {
-                require(requiredMaturity[i] > highestMaturity, "unsorted levels array");
+            for (
+                uint i = 1;
+                i < requiredMaturity.length;
+                i = _uncheckedInc(i)
+            ) {
+                require(
+                    requiredMaturity[i] > highestMaturity,
+                    "unsorted levels array"
+                );
                 highestMaturity = requiredMaturity[i];
             }
         }
@@ -228,12 +271,18 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
             })
         );
 
-        emit LogPoolAddition((poolToken.length - 1), allocPoint, _poolToken, _rewarder, _nftDescriptor);
+        emit LogPoolAddition(
+            (poolToken.length - 1),
+            allocPoint,
+            _poolToken,
+            _rewarder,
+            _nftDescriptor
+        );
     }
 
     /*
      + @notice Modify the given pool's properties.
-     +         Can only be called by the owner.
+     +         Can only be called by the operator.
      +
      + @param pid The index of the pool. See `poolInfo`.
      + @param allocPoint New AP of the pool.
@@ -270,7 +319,12 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
         pool.name = name;
         nftDescriptor[pid] = _nftDescriptor;
 
-        emit LogPoolModified(pid, allocPoint, overwriteRewarder ? _rewarder : rewarder[pid], _nftDescriptor);
+        emit LogPoolModified(
+            pid,
+            allocPoint,
+            overwriteRewarder ? _rewarder : rewarder[pid],
+            _nftDescriptor
+        );
     }
 
     /*
@@ -278,7 +332,12 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
      + @param relicId ID of the position.
      + @return pending OATH reward for a given position owner.
     */
-    function pendingOath(uint relicId) public view override returns (uint pending) {
+    function pendingOath(uint relicId)
+        public
+        view
+        override
+        returns (uint pending)
+    {
         PositionInfo storage position = positionForId[relicId];
         uint poolId = position.poolId;
         PoolInfo storage pool = poolInfo[poolId];
@@ -287,19 +346,30 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
 
         uint secondsSinceReward = block.timestamp - pool.lastRewardTime;
         if (secondsSinceReward != 0 && lpSupply != 0) {
-            uint oathReward = secondsSinceReward * _baseEmissionsPerSecond() * pool.allocPoint / totalAllocPoint;
-            accOathPerShare += oathReward * ACC_OATH_PRECISION / lpSupply;
+            uint oathReward = (secondsSinceReward *
+                _baseEmissionsPerSecond() *
+                pool.allocPoint) / totalAllocPoint;
+            accOathPerShare += (oathReward * ACC_OATH_PRECISION) / lpSupply;
         }
 
-        uint leveledAmount = position.amount * levels[poolId].allocPoint[position.level];
-        pending = leveledAmount * accOathPerShare / ACC_OATH_PRECISION + position.rewardCredit - position.rewardDebt;
+        uint leveledAmount = position.amount *
+            levels[poolId].allocPoint[position.level];
+        pending =
+            (leveledAmount * accOathPerShare) /
+            ACC_OATH_PRECISION +
+            position.rewardCredit -
+            position.rewardDebt;
     }
 
     /*
      + @notice Update reward variables for all pools. Be careful of gas spending!
      + @param pids Pool IDs of all to be updated. Make sure to update all active pools.
     */
-    function massUpdatePools(uint[] calldata pids) external override nonReentrant {
+    function massUpdatePools(uint[] calldata pids)
+        external
+        override
+        nonReentrant
+    {
         for (uint i; i < pids.length; i = _uncheckedInc(i)) {
             _updatePool(pids[i]);
         }
@@ -326,9 +396,10 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
             uint lpSupply = _poolBalance(pid);
 
             if (lpSupply != 0) {
-                uint oathReward = secondsSinceReward * _baseEmissionsPerSecond() * pool.allocPoint /
-                    totalAllocPoint;
-                accOathPerShare += oathReward * ACC_OATH_PRECISION / lpSupply;
+                uint oathReward = (secondsSinceReward *
+                    _baseEmissionsPerSecond() *
+                    pool.allocPoint) / totalAllocPoint;
+                accOathPerShare += (oathReward * ACC_OATH_PRECISION) / lpSupply;
                 pool.accOathPerShare = accOathPerShare;
             }
 
@@ -381,11 +452,20 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
      + @param amount token amount to withdraw.
      + @param relicId NFT ID of the receiver of the tokens and OATH rewards.
     */
-    function withdraw(uint amount, uint relicId) external override nonReentrant {
+    function withdraw(uint amount, uint relicId)
+        external
+        override
+        nonReentrant
+    {
         require(amount != 0, "withdrawing 0 amount");
         _requireApprovedOrOwner(relicId);
 
-        (uint poolId, ) = _updatePosition(amount, relicId, Kind.WITHDRAW, false);
+        (uint poolId, ) = _updatePosition(
+            amount,
+            relicId,
+            Kind.WITHDRAW,
+            false
+        );
 
         poolToken[poolId].safeTransfer(msg.sender, amount);
 
@@ -399,7 +479,12 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
     function harvest(uint relicId) external override nonReentrant {
         _requireApprovedOrOwner(relicId);
 
-        (uint poolId, uint _pendingOath) = _updatePosition(0, relicId, Kind.OTHER, true);
+        (uint poolId, uint _pendingOath) = _updatePosition(
+            0,
+            relicId,
+            Kind.OTHER,
+            true
+        );
 
         emit Harvest(poolId, _pendingOath, relicId);
     }
@@ -409,11 +494,20 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
      + @param amount token amount to withdraw.
      + @param relicId NFT ID of the receiver of the tokens and OATH rewards.
     */
-    function withdrawAndHarvest(uint amount, uint relicId) external override nonReentrant {
+    function withdrawAndHarvest(uint amount, uint relicId)
+        external
+        override
+        nonReentrant
+    {
         require(amount != 0, "withdrawing 0 amount");
         _requireApprovedOrOwner(relicId);
 
-        (uint poolId, uint _pendingOath) = _updatePosition(amount, relicId, Kind.WITHDRAW, true);
+        (uint poolId, uint _pendingOath) = _updatePosition(
+            amount,
+            relicId,
+            Kind.WITHDRAW,
+            true
+        );
 
         poolToken[poolId].safeTransfer(msg.sender, amount);
 
@@ -491,10 +585,17 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
             levels[poolId].balance[oldLevel] -= amount;
         }
 
-        _pendingOath = oldAmount * levels[poolId].allocPoint[oldLevel] * accOathPerShare
-            / ACC_OATH_PRECISION - position.rewardDebt;
-        position.rewardDebt = newAmount * levels[poolId].allocPoint[newLevel] * accOathPerShare
-            / ACC_OATH_PRECISION;
+        _pendingOath =
+            (oldAmount *
+                levels[poolId].allocPoint[oldLevel] *
+                accOathPerShare) /
+            ACC_OATH_PRECISION -
+            position.rewardDebt;
+        position.rewardDebt =
+            (newAmount *
+                levels[poolId].allocPoint[newLevel] *
+                accOathPerShare) /
+            ACC_OATH_PRECISION;
 
         if (!_harvest && _pendingOath != 0) {
             position.rewardCredit += _pendingOath;
@@ -512,15 +613,15 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
         }
 
         if (kind == Kind.DEPOSIT) {
-          IRewarder _rewarder = rewarder[poolId];
-          if (address(_rewarder) != address(0)) {
-              _rewarder.onDeposit(relicId, amount);
-          }
+            IRewarder _rewarder = rewarder[poolId];
+            if (address(_rewarder) != address(0)) {
+                _rewarder.onDeposit(relicId, amount);
+            }
         } else if (kind == Kind.WITHDRAW) {
-          IRewarder _rewarder = rewarder[poolId];
-          if (address(_rewarder) != address(0)) {
-              _rewarder.onWithdraw(relicId, amount);
-          }
+            IRewarder _rewarder = rewarder[poolId];
+            if (address(_rewarder) != address(0)) {
+                _rewarder.onWithdraw(relicId, amount);
+            }
         }
     }
 
@@ -529,7 +630,11 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
     /// @param amount Amount to move from existing Relic into the new one
     /// @param to Address to mint the Relic to
     /// @return newId The NFT ID of the new Relic
-    function split(uint fromId, uint amount, address to) external override nonReentrant returns (uint newId) {
+    function split(
+        uint fromId,
+        uint amount,
+        address to
+    ) external override nonReentrant returns (uint newId) {
         require(amount != 0, "cannot split zero amount");
         _requireApprovedOrOwner(fromId);
 
@@ -547,13 +652,18 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
         uint poolId = fromPosition.poolId;
         newPosition.poolId = poolId;
 
-        uint multiplier = _updatePool(poolId) * levels[poolId].allocPoint[level];
-        uint pendingFrom = fromAmount * multiplier / ACC_OATH_PRECISION - fromPosition.rewardDebt;
+        uint multiplier = _updatePool(poolId) *
+            levels[poolId].allocPoint[level];
+        uint pendingFrom = (fromAmount * multiplier) /
+            ACC_OATH_PRECISION -
+            fromPosition.rewardDebt;
         if (pendingFrom != 0) {
             fromPosition.rewardCredit += pendingFrom;
         }
-        fromPosition.rewardDebt = fromAmount * multiplier / ACC_OATH_PRECISION;
-        newPosition.rewardDebt = amount * multiplier / ACC_OATH_PRECISION;
+        fromPosition.rewardDebt =
+            (fromAmount * multiplier) /
+            ACC_OATH_PRECISION;
+        newPosition.rewardDebt = (amount * multiplier) / ACC_OATH_PRECISION;
 
         emit Split(fromId, newId, amount);
     }
@@ -562,7 +672,11 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
     /// @param fromId The NFT ID of the Relic to transfer from
     /// @param toId The NFT ID of the Relic being transferred to
     /// @param amount The amount being transferred
-    function shift(uint fromId, uint toId, uint amount) external override nonReentrant {
+    function shift(
+        uint fromId,
+        uint toId,
+        uint amount
+    ) external override nonReentrant {
         require(amount != 0, "cannot shift zero amount");
         require(fromId != toId, "cannot shift into same Relic");
         _requireApprovedOrOwner(fromId);
@@ -577,7 +691,9 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
         require(poolId == toPosition.poolId, "Relics not of the same pool");
 
         uint toAmount = toPosition.amount;
-        toPosition.entry = (fromAmount * fromPosition.entry + toAmount * toPosition.entry) / (fromAmount + toAmount);
+        toPosition.entry =
+            (fromAmount * fromPosition.entry + toAmount * toPosition.entry) /
+            (fromAmount + toAmount);
 
         uint newFromAmount = fromAmount - amount;
         fromPosition.amount = newFromAmount;
@@ -585,23 +701,44 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
         uint newToAmount = toAmount + amount;
         toPosition.amount = newToAmount;
 
-        (uint fromLevel, uint oldToLevel, uint newToLevel) =
-            _shiftLevelBalances(fromId, toId, poolId, amount, toAmount, newToAmount);
+        (
+            uint fromLevel,
+            uint oldToLevel,
+            uint newToLevel
+        ) = _shiftLevelBalances(
+                fromId,
+                toId,
+                poolId,
+                amount,
+                toAmount,
+                newToAmount
+            );
 
         uint accOathPerShare = _updatePool(poolId);
-        uint fromMultiplier = accOathPerShare * levels[poolId].allocPoint[fromLevel];
-        uint pendingFrom = fromAmount * fromMultiplier / ACC_OATH_PRECISION - fromPosition.rewardDebt;
+        uint fromMultiplier = accOathPerShare *
+            levels[poolId].allocPoint[fromLevel];
+        uint pendingFrom = (fromAmount * fromMultiplier) /
+            ACC_OATH_PRECISION -
+            fromPosition.rewardDebt;
         if (pendingFrom != 0) {
             fromPosition.rewardCredit += pendingFrom;
         }
-        uint pendingTo = toAmount * levels[poolId].allocPoint[oldToLevel] * accOathPerShare
-            / ACC_OATH_PRECISION - toPosition.rewardDebt;
+        uint pendingTo = (toAmount *
+            levels[poolId].allocPoint[oldToLevel] *
+            accOathPerShare) /
+            ACC_OATH_PRECISION -
+            toPosition.rewardDebt;
         if (pendingTo != 0) {
             toPosition.rewardCredit += pendingTo;
         }
-        fromPosition.rewardDebt = newFromAmount * fromMultiplier / ACC_OATH_PRECISION;
-        toPosition.rewardDebt = newToAmount * accOathPerShare * levels[poolId].allocPoint[newToLevel]
-            / ACC_OATH_PRECISION;
+        fromPosition.rewardDebt =
+            (newFromAmount * fromMultiplier) /
+            ACC_OATH_PRECISION;
+        toPosition.rewardDebt =
+            (newToAmount *
+                accOathPerShare *
+                levels[poolId].allocPoint[newToLevel]) /
+            ACC_OATH_PRECISION;
 
         emit Shift(fromId, toId, amount);
     }
@@ -625,22 +762,43 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
         uint toAmount = toPosition.amount;
         uint newToAmount = toAmount + fromAmount;
         require(newToAmount != 0, "cannot merge empty Relics");
-        toPosition.entry = (fromAmount * fromPosition.entry + toAmount * toPosition.entry) / newToAmount;
+        toPosition.entry =
+            (fromAmount * fromPosition.entry + toAmount * toPosition.entry) /
+            newToAmount;
 
         toPosition.amount = newToAmount;
 
-        (uint fromLevel, uint oldToLevel, uint newToLevel) =
-            _shiftLevelBalances(fromId, toId, poolId, fromAmount, toAmount, newToAmount);
+        (
+            uint fromLevel,
+            uint oldToLevel,
+            uint newToLevel
+        ) = _shiftLevelBalances(
+                fromId,
+                toId,
+                poolId,
+                fromAmount,
+                toAmount,
+                newToAmount
+            );
 
         uint accOathPerShare = _updatePool(poolId);
-        uint pendingTo = accOathPerShare * (fromAmount * levels[poolId].allocPoint[fromLevel]
-            + toAmount * levels[poolId].allocPoint[oldToLevel])
-            / ACC_OATH_PRECISION + fromPosition.rewardCredit - fromPosition.rewardDebt - toPosition.rewardDebt;
+        uint pendingTo = (accOathPerShare *
+            (fromAmount *
+                levels[poolId].allocPoint[fromLevel] +
+                toAmount *
+                levels[poolId].allocPoint[oldToLevel])) /
+            ACC_OATH_PRECISION +
+            fromPosition.rewardCredit -
+            fromPosition.rewardDebt -
+            toPosition.rewardDebt;
         if (pendingTo != 0) {
             toPosition.rewardCredit += pendingTo;
         }
-        toPosition.rewardDebt = newToAmount * accOathPerShare * levels[poolId].allocPoint[newToLevel]
-            / ACC_OATH_PRECISION;
+        toPosition.rewardDebt =
+            (newToAmount *
+                accOathPerShare *
+                levels[poolId].allocPoint[newToLevel]) /
+            ACC_OATH_PRECISION;
 
         _burn(fromId);
         delete positionForId[fromId];
@@ -655,7 +813,14 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
         uint amount,
         uint toAmount,
         uint newToAmount
-    ) internal returns (uint fromLevel, uint oldToLevel, uint newToLevel) {
+    )
+        internal
+        returns (
+            uint fromLevel,
+            uint oldToLevel,
+            uint newToLevel
+        )
+    {
         fromLevel = positionForId[fromId].level;
         oldToLevel = positionForId[toId].level;
         newToLevel = _updateLevel(toId);
@@ -677,7 +842,11 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
     /// @notice Calculate how much the owner will actually receive on harvest, given available OATH
     /// @param _pendingOath Amount of OATH owed
     /// @return received The minimum between amount owed and amount available
-    function _receivedOath(uint _pendingOath) internal view returns (uint received) {
+    function _receivedOath(uint _pendingOath)
+        internal
+        view
+        returns (uint received)
+    {
         uint available = oath.balanceOf(address(this));
         received = (available > _pendingOath) ? _pendingOath : available;
     }
@@ -693,19 +862,23 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
      + @param addedValue New value being added
      + @param oldValue Current amount of x
     */
-    function _findWeight(uint addedValue, uint oldValue) internal pure returns (uint weightNew) {
-      if (oldValue == 0) {
-        weightNew = 1e18;
-      } else {
-        if (oldValue < addedValue) {
-          uint weightOld = oldValue * 1e18 / (addedValue + oldValue);
-          weightNew = 1e18 - weightOld;
-        } else if (addedValue < oldValue) {
-          weightNew = addedValue * 1e18 / (addedValue + oldValue);
+    function _findWeight(uint addedValue, uint oldValue)
+        internal
+        pure
+        returns (uint weightNew)
+    {
+        if (oldValue == 0) {
+            weightNew = 1e18;
         } else {
-          weightNew = 1e18 / 2;
+            if (oldValue < addedValue) {
+                uint weightOld = (oldValue * 1e18) / (addedValue + oldValue);
+                weightNew = 1e18 - weightOld;
+            } else if (addedValue < oldValue) {
+                weightNew = (addedValue * 1e18) / (addedValue + oldValue);
+            } else {
+                weightNew = 1e18 / 2;
+            }
         }
-      }
     }
 
     /*
@@ -717,7 +890,7 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
         PositionInfo storage position = positionForId[relicId];
         uint weight = _findWeight(amount, position.amount);
         uint maturity = block.timestamp - position.entry;
-        position.entry += maturity * weight / 1e18;
+        position.entry += (maturity * weight) / 1e18;
     }
 
     /*
@@ -760,7 +933,10 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
     /// @notice Require the sender is either the owner of the Relic or approved to transfer it
     /// @param relicId The NFT ID of the Relic
     function _requireApprovedOrOwner(uint relicId) internal view {
-        require(_isApprovedOrOwner(msg.sender, relicId), "not owner or approved");
+        require(
+            _isApprovedOrOwner(msg.sender, relicId),
+            "not owner or approved"
+        );
     }
 
     /// @dev Utility function to bypass overflow checking, saving gas
@@ -786,7 +962,7 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
         address from,
         address to,
         uint tokenId
-    ) internal override (ERC721, ERC721Enumerable) {
+    ) internal override(ERC721, ERC721Enumerable) {
         ERC721Enumerable._beforeTokenTransfer(from, to, tokenId);
     }
 }
