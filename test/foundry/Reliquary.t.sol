@@ -102,7 +102,7 @@ contract ReliquaryTest is ERC721Holder, Test {
         uint relicId = reliquary.createRelicAndDeposit(address(this), 0, amount);
         skip(time);
         reliquary.updatePosition(relicId);
-        assertApproxEqAbs(reliquary.pendingOath(relicId), time * 1e17, 1e16);
+        assertApproxEqAbs(reliquary.pendingReward(relicId), time * 1e17, 1e16);
     }
 
     function testMassUpdatePools() public {
@@ -185,8 +185,10 @@ contract ReliquaryTest is ERC721Holder, Test {
     function testSplit(uint depositAmount, uint splitAmount) public {
         depositAmount = bound(depositAmount, 1, testToken.balanceOf(address(this)));
         splitAmount = bound(splitAmount, 1, depositAmount);
+
         uint relicId = reliquary.createRelicAndDeposit(address(this), 0, depositAmount);
         uint newRelicId = reliquary.split(relicId, splitAmount, address(this));
+
         assertEq(reliquary.balanceOf(address(this)), 2);
         assertEq(reliquary.getPositionForId(relicId).amount, depositAmount - splitAmount);
         assertEq(reliquary.getPositionForId(newRelicId).amount, splitAmount);
@@ -196,9 +198,11 @@ contract ReliquaryTest is ERC721Holder, Test {
         depositAmount1 = bound(depositAmount1, 1, testToken.balanceOf(address(this)));
         depositAmount2 = bound(depositAmount2, 1, testToken.balanceOf(address(this)) - depositAmount1);
         shiftAmount = bound(shiftAmount, 1, depositAmount1);
+
         uint relicId = reliquary.createRelicAndDeposit(address(this), 0, depositAmount1);
         uint newRelicId = reliquary.createRelicAndDeposit(address(this), 0, depositAmount2);
         reliquary.shift(relicId, newRelicId, shiftAmount);
+
         assertEq(reliquary.getPositionForId(relicId).amount, depositAmount1 - shiftAmount);
         assertEq(reliquary.getPositionForId(newRelicId).amount, depositAmount2 + shiftAmount);
     }
@@ -206,10 +210,45 @@ contract ReliquaryTest is ERC721Holder, Test {
     function testMerge(uint depositAmount1, uint depositAmount2) public {
         depositAmount1 = bound(depositAmount1, 1, testToken.balanceOf(address(this)));
         depositAmount2 = bound(depositAmount2, 1, testToken.balanceOf(address(this)) - depositAmount1);
+
         uint relicId = reliquary.createRelicAndDeposit(address(this), 0, depositAmount1);
         uint newRelicId = reliquary.createRelicAndDeposit(address(this), 0, depositAmount2);
         reliquary.merge(relicId, newRelicId);
+
         assertEq(reliquary.getPositionForId(newRelicId).amount, depositAmount1 + depositAmount2);
+    }
+
+    function testCompareDepositAndMerge(uint amount1, uint amount2, uint32 time) public {
+        amount1 = bound(amount1, 1, testToken.balanceOf(address(this)));
+        amount2 = bound(amount2, 1, testToken.balanceOf(address(this)) - amount1);
+
+        uint relicId = reliquary.createRelicAndDeposit(address(this), 0, amount1);
+        skip(time);
+        reliquary.deposit(amount2, relicId);
+        uint maturity1 = block.timestamp - reliquary.getPositionForId(relicId).entry;
+
+        //reset maturity
+        reliquary.withdraw(amount1 + amount2, relicId);
+        reliquary.deposit(amount1, relicId);
+
+        skip(time);
+        uint newRelicId = reliquary.createRelicAndDeposit(address(this), 0, amount2);
+        reliquary.merge(newRelicId, relicId);
+        uint maturity2 = block.timestamp - reliquary.getPositionForId(relicId).entry;
+
+        assertApproxEqAbs(maturity1, maturity2, 1);
+    }
+
+    function testMergeAfterSplit() public {
+        uint256 depositAmount1 = 100 ether;
+        uint256 depositAmount2 = 50 ether;
+        uint relicId = reliquary.createRelicAndDeposit(address(this), 0, depositAmount1);
+        skip(2 days);
+        reliquary.harvest(relicId);
+        reliquary.split(relicId, 50 ether, address(this));
+        uint newRelicId = reliquary.createRelicAndDeposit(address(this), 0, depositAmount2);
+        reliquary.merge(relicId, newRelicId);
+        assertEq(reliquary.getPositionForId(newRelicId).amount, 100 ether);
     }
 
     function testBurn() public {
