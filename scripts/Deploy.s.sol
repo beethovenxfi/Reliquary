@@ -10,13 +10,13 @@ import "contracts/helpers/DepositHelper.sol";
 contract Deploy is Script {
     uint[] wethCurve = [
         0,
+        1 hours,
+        7 hours,
         1 days,
-        7 days,
-        14 days,
+        15 days,
         30 days,
-        90 days,
-        180 days,
-        365 days
+        60 days,
+        120 days
     ];
     uint[] wethLevels = [100, 120, 150, 200, 300, 400, 500, 750];
 
@@ -55,6 +55,23 @@ contract Deploy is Script {
             "fBeets Pool",
             nftDescriptor
         );
+
+        IERC20 otherCrypt = IERC20(0x1ecDb4cf3e8BAD87bA409475216F72f237e8309B);
+
+        reliquary.addPool(
+            100,
+            otherCrypt,
+            IRewarder(address(0)),
+            wethCurve,
+            wethLevels,
+            "other Pool",
+            nftDescriptor
+        );
+
+        wethCrypt.approve(address(reliquary), 10000000000000 ether);
+        otherCrypt.approve(address(reliquary), 100000000000000 ether);
+        reliquary.createRelicAndDeposit( MULTISIG, 0, 10 ether);
+        reliquary.createRelicAndDeposit( MULTISIG, 1, 10 ether);
 
         reliquary.grantRole(reliquary.DEFAULT_ADMIN_ROLE(), MULTISIG);
         reliquary.grantRole(OPERATOR, MULTISIG);
