@@ -663,6 +663,7 @@ contract Reliquary is
         fromPosition.rewardDebt = newFromAmount * multiplier / ACC_REWARD_PRECISION;
         newPosition.rewardDebt = amount * multiplier / ACC_REWARD_PRECISION;
 
+        emit CreateRelic(poolId, to, newId);
         emit Split(fromId, newId, amount);
     }
 
