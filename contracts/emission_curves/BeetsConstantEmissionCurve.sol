@@ -7,17 +7,23 @@ import "../interfaces/IEmissionCurve.sol";
 import "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 contract BeetsConstantEmissionCurve is IEmissionCurve, Ownable {
-    uint public rate;
 
-    constructor(uint _rate) {
-        rate = _rate;
+    event EmissionUpdate(
+        uint rewardsPerSecond
+    );
+
+    uint public rewardPerSecond;
+
+    constructor(uint _rewardPerSecond) {
+        rewardPerSecond = _rewardPerSecond;
     }
 
     function getRate(uint lastRewardTime) external view override returns (uint) {
-        return rate;
+        return rewardPerSecond;
     }
 
-    function setRate(uint _rate) external onlyOwner {
-        rate = _rate;
+    function setRate(uint _rewardPerSecond) external onlyOwner {
+        rewardPerSecond = _rewardPerSecond;
+        emit EmissionUpdate(_rewardPerSecond);
     }
 }
