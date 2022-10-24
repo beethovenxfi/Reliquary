@@ -265,4 +265,18 @@ contract ReliquaryTest is ERC721Holder, Test {
         reliquary.burn(relicId);
         assertEq(reliquary.balanceOf(address(this)), 0);
     }
+
+    function testRelicsOfOwner() public {
+        uint relicId = reliquary.createRelicAndDeposit(address(this), 0, 1 ether);
+        uint relicId2 = reliquary.createRelicAndDeposit(address(this), 0, 1 ether);
+        uint relicId3 = reliquary.createRelicAndDeposit(address(this), 0, 1 ether);
+        uint[3] memory expectedRelicIds = [relicId, relicId2, relicId3];
+
+        uint[] memory relicIds = reliquary.relicIdsOfOwnere(address(this));
+
+        for(uint i = 0; i < relicIds.length; i++) {
+            assertEq(relicIds[i], expectedRelicIds[i]);
+        }
+
+    }
 }

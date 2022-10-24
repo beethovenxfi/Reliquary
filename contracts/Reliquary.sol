@@ -811,4 +811,48 @@ contract Reliquary is IReliquary, ERC721Burnable, ERC721Enumerable, AccessContro
     ) internal override (ERC721, ERC721Enumerable) {
         ERC721Enumerable._beforeTokenTransfer(from, to, tokenId);
     }
+
+    function relicIdsOfOwnere(address owner) external view returns (uint256[] memory) {
+        uint256 balance = balanceOf(owner);
+        uint256[] memory relics = new uint256[](balance);
+        for(uint256 i = 0; i < balance; i++) {
+            relics[i] = tokenOfOwnerByIndex(owner, i);
+        }
+        return relics;
+    }
+
+    function relicPositionsOfOwner(address owner) external view returns (uint256[] memory, PositionInfo[] memory) {
+        uint256 balance = balanceOf(owner);
+        uint256[] memory relics = new uint256[](balance);
+        PositionInfo[] memory positionInfos = new PositionInfo[](balance);
+        for(uint256 i = 0; i < balance; i++) {
+            relics[i] = tokenOfOwnerByIndex(owner, i);
+            positionInfos[i] = positionForId[relics[i]];
+        }
+        return (relics, positionInfos);
+    }
+
+    function relicPositionsByPoolOfOwner(address owner, uint256 poolId) external view returns (uint256[] memory, PositionInfo[] memory) {
+        uint256 balance = balanceOf(owner);
+        uint256[] memory relics = new uint256[](balance);
+        PositionInfo[] memory positionInfos = new PositionInfo[](balance);
+        uint256 entries = 0;
+        for(uint256 i = 0; i < balance; i++) {
+            uint256 relicId = tokenOfOwnerByIndex(owner, i);
+            PositionInfo position = positionForId[relicId];
+            if(position.poolId == poolId) {
+                relics[entries] = position;
+                relics[entries] = relicId;
+                entries++;
+            }
+        }
+        uint256[] memory trimmedRelics = new uint256[](entries);
+        PositionInfo[] memory trimmedPositionInfos = new PositionInfo[](entries);
+        for(uint256 i = 0; i < entries; i++) {
+            trimmedRelics[i] = relics[i];
+            trimmedPositionInfos[i] = positionInfos[i];
+        }
+
+        return (trimmedPositionInfos, trimmedPositionInfos);
+    }
 }
